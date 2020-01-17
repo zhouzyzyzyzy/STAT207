@@ -1,0 +1,272 @@
+---
+title: "EXPLORE THE 'STAR'"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+date: "1/16/2020"
+---
+
+```{R warning=FALSE, include=FALSE}
+library(AER)
+library(tidyverse)
+library(gridExtra)
+library(MASS)
+```
+# Background
+Student/Teacher Achievement Ratio (STAR) experiment was conducted from 1985 to 1989 in Tennessee. There is one cohort of 11,598 children in grades K-3 at 79 schools. Most children were born in 1979-80 and  graduated high school in 1998. In this experiment, students and teachers were randomly assigned to three class types - small, regular or regular size with a teacher’s aide. This project was not an experiment like STAR;it was a policy application of the STAR findings. The state of Tennessee took seriously the findings about the benefit of small classes for low-income and minority children.
+  
+The experimental schools come from inner-city, rural, urban, and suburban locations. This feature of the study, which the legislature mandated, guaranteed that the sample would include children from various ethnic backgrounds and income levels. In this project, our goal is to explore whether the class size has influence on student’s math scaled score in 1st grade.   
+  
+```{R message=FALSE, warning=FALSE}
+data("STAR")
+```
+
+```{R message=FALSE, warning=FALSE, include=FALSE}
+table(STAR$gender,STAR$ethnicity)
+```
+# Descriptive Analysis  
+
+To start with the data, we explore the composition of the sample population so as to get a brief overview of it. Since we are interested in relations between class type and students’ scores, we draw the scores density graph as well as grouped scores boxplots. under different grade levels. Also, we obtain grouped stacked barplot to see the overall distribution of school types.  
+  
+|      |cauc|afam |asian|hispanic|amindian|other|total|
+|---   |----|-----|- |- |-|- |-|
+|male  |3809|2197 |16|12|8|13|6055|
+|female|3384|1976 |16|9|6|7|5398|
+|total |7193|4173|32|21|14|20|11453|
+  
+Our sample consists of various races with a majority of Caucasian and African-Amercian. In addition, we can see that populations of female and male from various country regions are approximately equal.  
+  
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+dis_k <- ggplot(filter(STAR, readk != 'NA' & mathk != 'NA'), aes(x = x)) +
+  geom_density(aes(x = mathk, y = ..density..), fill = '#404080') + 
+  geom_label(aes(x = 650, y = 0.005, label = 'math'), color = '#404080') +
+  geom_density(aes(x = readk, y = -..density..), fill = '#69b3a2') +
+  geom_label(aes(x = 650, y = -0.005, label = 'read'), color = '#69b3a2') +
+  xlab("kindergarten") + xlim(c(300, 700))
+dis_1 <- ggplot(filter(STAR, read1 != 'NA' & math1 != 'NA'), aes(x = x)) +
+  geom_density(aes(x = math1, y = ..density..), fill = '#404080') + 
+  geom_density(aes(x = read1, y = -..density..), fill = '#69b3a2') +
+  xlab("first-year") + xlim(c(300, 700))
+dis_2 <- ggplot(filter(STAR, read2 != 'NA' & math2 != 'NA'), aes(x = x)) +
+  geom_density(aes(x = math2, y = ..density..), fill = '#404080') + 
+  geom_density(aes(x = read2, y = -..density..), fill = '#69b3a2') +
+  xlab("second-year") + xlim(c(300, 750))
+dis_3 <- ggplot(filter(STAR, read3 != 'NA' & math3 != 'NA'), aes(x = x)) +
+  geom_density(aes(x = math3, y = ..density..), fill = '#404080') + 
+  geom_density(aes(x = read3, y = -..density..), fill = '#69b3a2') +
+  xlab("third-year") + xlim(c(300, 800))
+grid.arrange(dis_k, dis_1, dis_2, dis_3, nrow = 2)
+```
+  
+As we can see from the figure, the scaled math and reading scores are all closely normally distributed. The four years math scaled scores concentrate around 470, 530, 570 and 620, respectively and the four years reading scaled scores concentrate around 430, 520, 570 and 610, respectively. In addition, the overall math and reading scaled scores increase gradually as the grade level rises.
+  
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+rd_bpk <- ggplot(filter(STAR, readk != 'NA'), aes(x = stark, y = readk, fill = stark)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'read_score') +
+  guides(fill=guide_legend(title="kindergarten"))
+rd_bp1 <- ggplot(filter(STAR, read1 != 'NA'), aes(x = star1, y = read1, fill = star1)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'read_score') +
+  guides(fill=guide_legend(title="first_grade"))
+rd_bp2 <- ggplot(filter(STAR, read2 != 'NA'), aes(x = star2, y = read2, fill = star2)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'read_score') +
+  guides(fill=guide_legend(title="second_grade"))
+rd_bp3 <- ggplot(filter(STAR, read3 != 'NA'), aes(x = star3, y = read3, fill = star3)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'read_score') +
+  guides(fill=guide_legend(title="third_grade"))
+grid.arrange(rd_bpk, rd_bp1, rd_bp2, rd_bp3, nrow = 2)
+```
+
+  
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+mt_bpk <- ggplot(filter(STAR, mathk != 'NA'), aes(x = stark, y = mathk, fill = stark)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'math_score') +
+  guides(fill=guide_legend(title="kindergarten"))
+mt_bp1 <- ggplot(filter(STAR, math1 != 'NA'), aes(x = star1, y = math1, fill = star1)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'math_score') +
+  guides(fill=guide_legend(title="first_grade"))
+mt_bp2 <- ggplot(filter(STAR, math2 != 'NA'), aes(x = star2, y = math2, fill = star2)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'math_score') +
+  guides(fill=guide_legend(title="second_grade"))
+mt_bp3 <- ggplot(filter(STAR, math3 != 'NA'), aes(x = star3, y = math3, fill = star3)) +
+  geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+                         axis.ticks.x=element_blank()) + labs(y = 'math_score') +
+  guides(fill=guide_legend(title="third_grade"))
+grid.arrange(mt_bpk, mt_bp1, mt_bp2, mt_bp3, nrow = 2)
+```
+  
+From the boxplots, we can see that students who attended small classes (K-3) consistently made better grades than students in regular and regular/aide classes in both reading and math scores. In addition, students attended regular with the teacher’s aid obtain slightly higher reading and math scores than thosee one without teachers’s aid.  
+  
+```{R echo=FALSE}
+sk <- count(na.omit(STAR),schoolk)
+s1 <- count(na.omit(STAR),school1)
+s2 <- count(na.omit(STAR),school2)
+s3 <- count(na.omit(STAR),school3)
+names(sk) <- c('school_type', 'count')
+names(s1) <- c('school_type', 'count')
+names(s2) <- c('school_type', 'count')
+names(s3) <- c('school_type', 'count')
+count <- rbind(sk, s1, s2, s3)
+grade <- c(rep('kindergarten', 4), rep('first_grade', 4), rep('second_grade', 4), rep('third_grade', 4))
+stack_list <- data.frame(grade = grade, school_type = count$school_type, count = count$count)
+ggplot(data = stack_list, aes(fill = grade , y = count, x = school_type)) + 
+  geom_bar(position="stack", stat="identity", color = 'black') + 
+  scale_fill_manual(values=c('#FF6666', "#E69F00", "#56B4E9", "#009E73"))
+```
+  
+Most of our subjects come from rural area as we see from the stacked barplot. As NA value cases appear in the student who didn’t attend four consecutive years in the same school and we delete the observations with NA values, so in each specific school type, different grade levels are nearly equal.  
+
+# One-way ANOVA Model
+  
+Our goal is to test if there is a difference in the math scaled score among three different groups. In this dataset, the factor ‘type of the class’ can be split into 3 levels- small, regular and regular classes with a teacher’s aide. So there are more than 2 populations to compare. It is flawed to do three pairwise comparisons using t-tests. The better way is one-way ANOVA.   
+  
+Moreover, one-way ANOVA would be appropriate if the goal of research is to assess for differences in math score levels between class types. In this example, there is only one dependent variable (scaled math score) and one independent variable (class type).
+ 
+  
+The model as follows:  
+  
+$Y_{i,j}=\mu_i+\epsilon_{i,j}$, $Y_{i,j}$ are observations of the math scaled score.  
+(i).$i=1,2,3$ respectively correspond to individuals belonging to small, regular, regular+aide group.  
+(ii).$j=1,2,...,n_i$ denote to the observation index in each class type.  
+(iii).$\mu_i$ is the mean of the observations in $i$-th class type.  
+(iv).$\epsilon_{ij}$ $\stackrel{\text{i.i.d}}{\sim}$ $N(0,\epsilon^2)$ are normally distributed zero-mean random errors.  
+  
+First, we want to check if it is necessary to apply the transformation to the data. A box-cox plot is needed. 
+  
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+dataset = STAR[,c(5,13)]
+dataset$star1 = as.factor(dataset$star1)
+
+STAR_sub = na.omit(dataset)
+
+anova.fit<-aov(math1~star1,data=STAR_sub)
+boxcox(anova.fit)
+```
+  
+It is obvious that we need to do a log transformation, according to the boxcox plot.
+  
+```{R warning=FALSE}
+STAR_sub$math1 = log(STAR_sub$math1)
+```
+```{R warning=FALSE}
+anova.fit<-aov(math1~star1,data=STAR_sub)
+fit1<-summary(anova.fit)
+fit1
+table(STAR_sub$star1)
+anova.fit$coefficients 
+```
+  
+The model we get is $\log(Y_{i,j})=\mu_i+\epsilon_{i,j}$.   
+$$
+\mu_i=\left\{
+\begin{array}{rcl}
+6.261 & & i=1 (regular)\\
+6.286 & & i=2(small)\\
+6.269 & & i=3(regular+aide)
+\end{array} \right.
+$$
+The $p$-value is quite small.We have strong evidence to reject the null hypothesis that three population means are equal. Consequently, the further analysis for each pairwise is needed.
+. We choose F test to conduct ANOVA model. There are three assumptions needed for F test.  
+1) Normality assumption: All three populations have distributions that are approximately normal.    
+2) Constant variance: The three population variances are equal.  
+3) Independence: The samples are randomly selected in an independent manner from the three treatment populations.   
+  
+Now we begin model diagnostic and analysis.  
+  
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+mse<-mean(anova.fit$residuals^2)
+res<-anova.fit$residuals
+res_semistd=res/mse
+res_semistd_frame <- data.frame(x = res_semistd)
+ggplot(res_semistd_frame, aes(x = x)) + 
+  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9)
+par(mfrow=c(2,2))
+plot(anova.fit)
+```
+  
+According to the distribution of residuals and the QQ-plot, it is approximately normally distributed.  
+  
+In addition, we want to see whether the magnitude of the residuals tends to increase or decrease with the fitted values. If such a pattern is apparent then it suggests that variance changes with the mean. Here, the first plot is a systematic pattern without any significant trend so it looks like the constant variance assumption is satisfied.
+  
+```{R}
+bartlett.test(math1 ~ star1, data = STAR_sub)
+```
+The null hypothesis of a Bartlett test is that the variances are equal, so an insignificant $p$-value (0.3166>0.05) indicates that the three group data are consistent with the equal variance assumption. 
+  
+| |SS|df |MS |F| Pr(>F)|
+|- |--|-- |-- |-|-|
+|E | 0.68|2  |0.34   |52.713   |$2*10^{-16}$|
+|TR | 42.55|6597  |0.00645 |   | |
+|TO | 43.23|6599  |   |   | |
+  
+F test:  
+According to the result of the F test, we reject the null hypothesis since F statistic is too large. That means not all size of class students has the same performance in math. We can say that class size has influence on students’ math scores.   
+  
+So the next step is to determine which two or more groups have unequal means, that means we want to find students in which two sizes of class  have different math scores. That is multiple comparison in Statistics, we are considering to use Tukey, Bonfferoni and Scheffe method to deal with this problem.
+  
+We first apply F test in ANOVA model.  
+$H_0:\mu_1=\mu_2=\mu_3$ v.s. $H_a:at\ least\ one\ of\ them\ is\ not\ equal$  
+Using the test statistic
+$$F=\frac{SS_{between}/(k-1)}{SS_{within}/\sum(n_i-1)}=\frac{SS_{between}/2}{SS_{within}/6597}$$
+where $F$~$F_{0.95,2,6597}=2.997<<52.713$. We reject null hypothesis when $F$ is too large.
+
+Tukey method should be used when all groups have the same sample size. In our dataset, these three groups have different sizes so we cannot use tukey method in this case. Bonferroni and Scheffe could be used when groups do not have the same sample size, and Bonferroni performes better than scheffe in case that the number of comparisons is less than the number of groups. In practice, we usually calculate Bonferroni statistic and Scheffe statistic and use the smaller one. After compare that, we use Bonferroni method to do the multiple comparison.
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+comb.mat<-matrix(0,nrow=3,ncol=3)
+comb.mat[1,]=c(1,-1,0);comb.mat[2,]=c(1,0,-1);comb.mat[3,]=c(0,1,-1)
+# Obtain the estimates 
+diff = numeric(dim(comb.mat)[1]);
+diff.sd=diff;
+mean.tmp=anova.fit$coefficients;mean.tmp[1]=0;
+ns=as.numeric(table(STAR_sub$star1));
+for(i in 1:length(diff)){
+  diff[i]=sum(comb.mat[i,]*mean.tmp);
+  diff.sd[i]=sqrt(sum(comb.mat[i,]^2/ns*mse));
+}
+
+alpha=0.05;
+
+# Bonferroni correction:
+m=3; # for all pairwise differences, although we only show two here
+B.stat=qt(1-alpha/(2*m),anova.fit$df.residual);
+
+
+# Scheffe 
+S.stat=sqrt( (length(anova.fit$coefficients)-1)*qf(1-alpha,length(anova.fit$coefficients)-1,anova.fit$df.residual))
+
+table.stats=matrix(0,1,2);
+table.stats[1,]=c(B.stat,S.stat);
+colnames(table.stats)=c('Bonferroni', 'Scheffe')
+table.stats
+```
+  
+In the Bonferroni procedure, we construct the confidence interval which contains zero. That means the mean value of these three groups is not equal. We can conclude that students in different size of class have different performance in math scores.  
+  
+```{r echo=FALSE}
+CI.bonferroni =matrix(0,nrow=3,ncol=2);
+for(i in 1:length(diff)){
+  CI.bonferroni[i,]=diff[i]+c(1,-1)*B.stat*diff.sd[i];
+}
+CI.bonferroni
+```
+  
+#conclusion
+In this project, we are interested in whether there is a difference in math scores between students in differents sizes of class. After exploratory data analysis, we find that this dataset needs to do a log transformation and we choose one-way ANOVA model to analyzesis related questions. The result of F test shows that not all sizes of class students have the same math scores. To further explore the influence of class size on students’ math scores, we use Bonferroni method and find that students in different class size have different math scores.   
+  
+# Causal Statement
+
+From the background of the project Student/Teacher Achievement Ratio (STAR), we know that students were randomly assigned to the three types of classes. Classroom teachers were also randomly assigned to the classes they would teach. The interventions were initiated as the students entered school in kindergarten and continued through third grade.
+Also, the sizes of the three types of the classes are not fixed. Small class contains 13 to 17 students per teacher, regular class contains 22 to 25 students per teacher, and regular-with-aide class contains 22 to 25 students. In this sense, a student's assignment will not affect others. 
+In a way, it is a randomized experient. We have drawn a conclusion that the scaled math scores are different among three types of the class. Based on the arguments above, we can make a causal statement that the type of the class would affect the students' scaled math scores.
+  
+# Reference
+[1]. https://www.aft.org/sites/default/files/periodicals/STARSummer99.pdf
