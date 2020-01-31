@@ -1,0 +1,318 @@
+---
+title: "Assessing Treatment Effects of class size and school indicator on median math scores under teacher individuals"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+    fig_caption: yes
+    number_sections: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+  }
+
+</style>
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,message=FALSE,warning=FALSE)
+```
+***
+Team Id:11  
+Xi Yang     (Introduction, Analysis plan, comparison)  
+Shan Gao    (Model fitting, F-test, Model Diagnositic)  
+Yuxiang Lin (Descriptive Analysis and Conclusion)  
+Ziyi Zhou   (Output, Causal Statement and Report)  
+Github Repo: https://github.com/zhouzyzyzyzy/STAT207.git
+
+
+
+Introduction
+==============================
+Background
+------------------------------
+
+In this project, we will still use the same data set (STAR) and we are interested in the effects of class types, schools on the scores. Since we have limited sample size and a large number of parameters, while at the same time we are not interested in the interaction terms and it is  hard to interpret the practical meaning, so we decided to drop the interaction terms in our model. Our model considers each teacher as the individual unit. In our report, we are going to conduct exploratory data analysis, two-way ANOVA mode, related diagnostics method and explore the impact of class types and schools on the math score.  
+ 
+
+Statistical Questions of Interest
+------------------------------------------
+To answer the primary scientific question of interest, we propose to fit a two-way analysis of variance(ANOVA) model with the median score of all the students under a  specific teacher as the response variable. The two indicators, school, and class type, are the two predictor variables in the model. We will then implement the related model diagnostic method to check whether the assumptions of the model hold and test whether those two indicators influence math scores.  
+
+Analysis Plan
+==================================
+
+Population and Study Design
+---------------------------------
+### Brief Introduction  
+According to the description of the dataset STAR, The Student/Teacher Achievement Ratio (STAR) was a four-year longitudinal class-size study funded by the Tennessee General Assembly and conducted by the State Department of Education. Over 7,000 students in 79 schools were randomly assigned into one of three interventions: small class, regular class, and regular-with-aide class. Classroom teachers were also randomly assigned to the classes they would teach. The interventions were initiated as the students entered school in kindergarten and continued through third grade. [1] In this project, our goal is to analyze the 1st-grade students which we only pay attention to.
+
+### Why Median
+Average scores represents the overall level for the student population. However, it is easy  to be affected by extreme values, especially when the sample size is small. In this case, the number of students under one teacher is small, which makes the average value more unstable. Hence, it is reasonable to take the median math scores of students under the same teacher as the response variable value.  
+
+Statistical Analysis
+--------------------------------------------
+### Descriptive Analysis
+Our report mainly discusses about median math scores with teacher as the unit and its indicators. In order to explore class type and school indicators, we look into these two variables first and get their basic information such as row numbers and class types proportion.  
+
+Then we plot a horizontal frequency bar chart to get an overview of the frequency of each category under the class type variables. For the response variable(math score), we calculate the statistical features such as mean and range, then we draw a brief density plot for the variable. These information give us a basic knowledge of the interest variables and tell us whether we should deal with missing data.  
+
+To explore the class type and school factor effect on the  math scores, we draw the grouped boxplots under these two indicators to see how median scores change through different categories and take it as the guidance to our model construction.
+
+
+```{R message=FALSE, warning=FALSE, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+library(car)
+library(MASS)
+library(stats)
+library(ggfortify)
+library(foreign)
+```
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+STAR_Students <- read.spss("C:/Users/REAY/Documents/GitHub/STA-207/Project 2/STAR_Students.sav")
+dataset<-na.omit(data.frame(STAR_Students$g1tchid,STAR_Students$g1schid,STAR_Students$g1classtype,STAR_Students$g1tmathss))
+names(dataset)<-c('teacherID','schoolID','class_type','math_score')
+STAR2<-group_by(dataset,teacherID)%>% 
+summarise(math_score = median(math_score),schoolID=unique(schoolID),class_type=unique(class_type))
+```
+
+
+### Two-way ANOVA Model
+To see the effects of class types and the school location on math scaled scores in 1st grade, we will use a two-way ANOVA model. Our two-way ANOVA model is specified below:
+
+$$Y_{i,j,k}=\mu+\alpha_i+\beta_j+\epsilon_{i,j,k}\quad k=1,2,...,n_{i,j}$$
+The explanation of notation is shown in the Appendix.
+
+### Model Diagnostic
+We will use some model diagnostic method to check whether the assumptions of the two-way ANOVA model hold. We are going to draw the residual plot and Q-Q plot. We will also do the Bartlett Test. All of those are to check the equal variance assumption and normality assumption. As to the independence assumption, we will consider from the perspective of experimental design to check whether it holds.
+
+Results and discussion
+==============================
+Descriptive analysis
+-------------------------------
+There are 339 teachers in total in our dataset. 3 class types and 76 school indicators can be observed. The barplot(figure x) shows the number of three class types. As we see from the figure, small class has the highest class number and regular+aid class has the lowest number.  
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+length(unique(STAR2$teacherID))
+length(unique(STAR2$schoolID))
+count(STAR2, class_type)
+summary(STAR2$math_score)
+```
+
+
+
+The barplot *Figure 1* shows the number of teachers in three class types. As we see from the figure, small class has the most teachers and regular size class with aid has the fewest teachers.
+
+
+Min     1st Qu.    Median    Mean   3rd Qu.    Max.
+-----   -------    ------    -----   -----     ----
+465.0   512.0      532.0     530.6   549.0     619.5 
+
+Table: Table 1: Summary of math score 
+
+*Table 1* shows the general distribution of math score. The density below gives a more specific description.
+
+The density plot for math score *Figure 2* indicates the normality for the response variable as the distribution is asymmetric and has a higher probability in its left tail.  
+
+
+The grouped boxplot *Figure 3* shows with the median math score as the measurement, the teachers in small class behave best in general while teachers in regular class behave the worst. As we see from the figure, math scores vary among different class type categories, so we should take the class type factor into consideration when we construct the ANOVA model.   
+
+The grouped boxplot *Figure 4* shows with the math score as the measurement, different schools have different performance. As we can see, math scores vary significantly among schools,so we should also take the school factor into consideration when we construct the ANOVA model.  
+
+Two-way ANOVA model
+---------------------------------
+$$H_0: The\; means\; of\; observations\; grouped\; by\; class\; type\; are\; the\; same. $$
+$$H_1: The\; means\; of\; observations\; grouped\; by\; class\; type\; are\; different.$$
+and
+$$H_0: The\; means\; of\; observations\; grouped\; by\; school\; id\; are\; the\; same.$$
+$$H_1: The\; means\; of\; observations\; grouped\; by\; school\; id\; are\; different.$$
+```{r message=FALSE, warning=FALSE, include=FALSE}
+anova.fit1<-aov(math_score~as.factor(schoolID)+as.factor(class_type),data=STAR2) 
+summary(anova.fit1)
+```
+
+BASELINE          REGULAR CLASS            REGULAR + AIDE CLASS
+----------     ----------------------   ---------------------
+499.8          -12.3                    -13.1
+
+Table: Table 2: Coefficient of the model
+
+Here we give the coefficients of the model of class type and the results of school id are shown in the appendix.
+
+             Df       Sum Sq       Mean Sq     F      Pr(>F)
+--------     ----     -------      -------     --     ------
+schoolID     75       148101       1975        6.3    <2e-16
+class_type   2        12283        6143        19.7   1.1e-08
+Residuals    261      81354        312      
+
+Table: Table 3: Summary of the model
+
+From *Table 3*, we see that the p-value is quite small (<2e-16), we therefore reject the null hypothesis at level 0.05. The equality of the means of the test scores of each class type happens less than 5% of the time. Therefore, we conclude that there is a treatment effect of the class types.  
+
+|                                      | diff       | lower      | upper     |
+|--------------------------------------|------------|------------|-----------|
+| REGULAR CLASS - SMALL CLASS          | -13.0      | -18.0      | -7.9      |
+| REGULAR + AIDE CLASS - SMALL CLASS   | -11.1      | -16.     3 | -5.8      |
+| REGULAR + AIDE CLASS - REGULAR CLASS | 1.9        | -3.5       | 7.2       |
+
+Table: Table 4: Confidence Interval of Turkey Test  
+
+So the next step is to determine which two or more groups have unequal means. Now, we are considering using the Tukey method to do the Multiple Comparisons. As the result shows (*Table 4* and *Figure* in the Appendix), the confidence interval of pairwise comparison between regular size class and regular size class with aids contains zero. The other two confidence intervals do not contain zero. Here we can conclude: there isn't a treatment effect between the regular class and the regular class with aids; there is a treatment effect between the small class and regular class; there is a treatment effect between the small class and regular class with aid.  
+
+Similarly, we see that the p-value is <1.89e-9<0.05, we therefore reject the null hypothesis at level 0.05 as the p-value suggests that  the means of the test scores of each school ids are different at a 5% level. Therefore, we conclude that there is a treatment effect of the school id.    
+
+Model Diagonostics
+-----------------------------------
+There are three assumptions for F test:  
+
+*  Independence  
+
+In this experiment, the teachers were randomly assigned to classes. Also, students were randomly assigned into one of three interventions: small class, regular class, and regular-with-aide class. Besides, there is no obvious evidence based on the study description to show that some students' math test scores would have depended on other students math test scores. Therefore, we have reasons to believe that the outcomes are independent.  
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+
+mse<-mean(anova.fit1$residuals^2)
+res<-anova.fit1$residuals
+res_semistd=res/mse
+res_semistd_frame <- data.frame(x = res_semistd)
+
+```
+
+* normality  
+
+
+
+
+*Figure 5* and *Figure 6* depict a sample relative to the standard normal distribution. The normality assumption is generally satisfied.  
+ 
+* Constant variance 
+
+We can see from the scatter plot *figure 7* the residuals spread around the 0, but the extent of the points scattered are not  equal. The assumption of constant variance is not satisfied.   
+
+Comparisons  
+-----------------------------
+In the first report, we constructed one-way ANOVA model with students' math scores as the response variable and explored the effect of different class types on the scores, in this report we take the median of math scores under the same teacher as the response variable. In this section, in order to make the conclusion comparable, we built the one-way ANOVA model with median scores as the response variable and class types as the predictor variable first, then we compare the tukey interval with the result in 3.2.  
+
+
+As we can see from *figure 8*, the tukey interval plots are consistent with each other in the two models. This is because the experiment was designed stratified randomization with completely randomized treatment assignment within each school. In this situation, the factor school id does not have influence on the factor class size type.
+
+Causal Inference  
+----------------------------------
+According to our research, we observe that both class types and school indicators have effects on the math scaled scores in the 1st with teacher as the unit.  If we agree with the fact that the experiment satisfies the randomization, we can state that the difference among teachers' behaviors can be attributed to the  different treatments of class type and school indicator. There are two significant assumptions worth considering, SUTVA and ITAA.  
+
+* $\textbf{Stable unit treatment value assumption:}$  It means the observation on one unit should be unaffected by the particular assignment of treatments to the other units [2]. It holds because the randomization makes sure that there is no interference between the assignments.  
+
+* $\textbf{Ignorability of treatment assignment assumption:}$ We can ignore how one ended up in one vs. the other group when it comes to the potential outcome [3]. It is obvious that as long as we consider that each teacher's assignment is independent, which  also can be concluded by the background of the project.   
+
+Based on the arguments above, we can make a causal statement that the type of the class and school indicator would affect the teaching achievement of teachers. Moreover, in class type,we cannot conclude a difference between regular size and regular size with aide. However, randomized experiments are not possible due to ethical or practical concerns[3]. Once we consider on these noise, our statement may turn out to be unreliable.   
+
+Conclusion  
+==============================
+In our report, we construct a two-way ANOVA model to explore the treatment effect of class type and school based on the median of 1-st grade students' math scores under the same teacher. Our dataset satisfies the assumptions for our model and it is appropriate to utilize the model to analyze the treatment effect.  
+ 
+By the result of F test, we find there are treatment effects of both class type and school on median math scores, to step further into the difference, we use Tukey test and find the differences come from small class with the other two class types(regular class and regular + aid class). 
+We also compare the effect of the predictor variable(class type) on the median math scores under two-way ANOVA model with the effect of the same predictor variable under one-way ANOVA model and find the consistent results.  
+
+In the end of our report, we discuss the possibility of making any causal statements based on our analysis. We hold the view that our results hold for most of the cases. While under some specific circumstances such as considering the noise comes from ethical or practical concerns, our statements may turn out to be unreliable.  
+
+
+Reference
+===============================
+[1]. https://dataverse.harvard.edu/dataset.xhtml?persistentId=hdl:1902.1/10766  
+[2]. https://en.wikipedia.org/wiki/Rubin_causal_model  
+[3]. http://utstat.toronto.edu/~nathan/teaching/STA305/classnotes/week4/sta305week4classnotes.html
+
+Appendix  
+================================
+$\textbf{Explanation of the notation}$
+
+* The index $i$ denotes factor level of class size type; $a$ is the number of factor level (treatment). In our case we have $a=3$ since we have 3 different treatment groups: small, regular, and regular with aide class types.   
+
+* The index $j$ denotes factor level of school ids; $b$ is the number of school ids.  
+
+* The index $k$ denotes experimental unit. In our case, each experimental unit is a 1st-grade teacher.  
+
+* The index $n_{ij}$ is the number of experimental units in the $i$th treatment A group and jth treatment B group. $n_T=\sum_i\sum_jn_{ij}$ is the total size sample.   
+
+* $Y_{ijk}$ denotes the observed outcome of the scaled math score of the kth teacher in the $i$th class type and jth school id.  
+
+* $\mu$ denotes the overall mean. It will be the average of test scores from overall mean in the whole population.   
+
+* $\alpha_i$ denotes the $k$th teacher's deviation of scaled math score in the $i$th class type.  
+
+* $\beta_j$ denotes the $k$th teacher's deviation of scaled math scores from overall mean in the $j$th school id.    
+
+* $\epsilon_{ij}$ denotes random errors. These are unobserved random variables.   
+
+The assumptions of F-test for two-way ANOVA model are here:  
+
+* The populations from which the samples were obtained must be normally or approximately normally distributed.  
+
+* The samples must be independent.  
+
+* The variances of the populations must be equal.  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+f1 <- ggplot(count(STAR2, class_type), aes(x=class_type, y=n, fill = class_type)) + 
+  geom_histogram(stat = "identity") +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), 
+                       axis.text.y = element_blank(), axis.text.x = element_blank())+labs(title = 'Figure 1')
+f2 <- ggplot(STAR2, aes(x = x)) + geom_density(aes(x = math_score, y = ..density..), fill = '#404080') +
+  xlim(450, 630) + xlab('Math Score')+labs(title = 'Figure 2')
+grid.arrange(f1, f2, nrow = 1)
+```
+
+```{R echo=FALSE, message=FALSE, warning=FALSE}
+f3 <- ggplot(STAR2) +
+  geom_boxplot(aes(y = math_score, x = class_type, fill = class_type)) +
+  theme(axis.title.x=element_blank(),axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + ylab('Math Score') + labs(title = 'Figure 3')
+
+f4 <- ggplot(STAR2) +
+  geom_boxplot(aes(y = math_score, x = as.factor(schoolID)), fill = '#90F0FF', show.legend = FALSE) +
+  theme(axis.title.y=element_blank(),axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) + labs(y = 'First Grade Math Score', title= 'Figure 4' ) +
+  coord_flip()
+grid.arrange(f3, f4, nrow = 1)
+```
+
+```{r echo=FALSE, fig.cap='Figure 5',fig.align='center',  fig.show='hold', message=FALSE, warning=FALSE}
+plot(anova.fit1, which = 2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+a1 <- ggplot() + geom_point(aes(x = anova.fit1$fitted.values, y = res, color = 'red'), show.legend = FALSE) +
+  geom_smooth(aes(x = anova.fit1$fitted.values, y = res), method='lm', show.legend = FALSE) + 
+  xlab('Fitted Values') + ylab('Residuals')+labs(title= 'Figure 6' )
+
+a2 <- ggplot(res_semistd_frame, aes(x = x)) + 
+  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9, bins = 30)+labs(title= 'Figure 7' )
+grid.arrange(a1, a2, nrow = 1)
+```
+
+
+```{r echo=FALSE, fig.cap='Figure 8',fig.align='center',  fig.show='hold', message=FALSE, warning=FALSE}
+anova.fit <- aov(math_score~as.factor(class_type), data = STAR2)
+T <- TukeyHSD(anova.fit, conf.level = 0.95)
+plot(T,col="brown")
+```
+
+
+```{r echo=FALSE, fig.cap='Figure*',fig.align='center',  fig.show='hold', message=FALSE, warning=FALSE}
+alpha=0.05
+T.ci1 <- TukeyHSD(anova.fit1)
+par(mfrow = c(1, 2))
+plot(T.ci1, col="brown",cex.axis=0.3)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+anova.fit1<-aov(math_score~as.factor(schoolID)+as.factor(class_type),data=STAR2) 
+#summary(anova.fit1)
+summary.lm(anova.fit1)
+```
+
+
+
+
+
