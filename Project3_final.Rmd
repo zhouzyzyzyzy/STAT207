@@ -1,0 +1,356 @@
+---
+title: "Can mandatory jail law reduce the fatality"
+output:
+  pdf_document: 
+    number_sections: yes
+  html_document:
+    df_print: paged
+    fig_caption: yes
+    number_sections: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 18px;
+  }
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,message=FALSE,warning=FALSE)
+```
+
+Team Id:11  
+
+Xi Yang     (Introduction, Analysis plan, Comparison)  
+
+Shan Gao    (Model fitting,F-test,Causal Statement)  
+
+Yuxiang Lin (Descriptive Analysis and Conclusion)  
+
+Ziyi Zhou   (Model Diagnositic, Report)  
+
+Github Repo: https://github.com/zhouzyzyzyzy/STAT207.git
+
+
+
+# Introduction
+
+## Background
+
+The global epidemic of road crash fatalities and disabilities is gradually being recognized as a major public health concern. There are approximately 40,000 highway traffic fatalities each year in the United States and an additional 2.35 million are injured or disabled, leading to the road safety a shared responsibility. In this report, we aim to study the influential factors for traffic fatalities and offer policymakers feasible suggestions in reducing fatalities.  
+
+The dataset "Fatalities" contains the traffic fatalities data for 48 U.S. states(excluding Alaska and Hawaii) from 1982 to 1988. We are interested in alcohol factors, social economical conditions and legal terms associated with vehicle crashes. Based on the literature review and dataset information, we will use fixed effect model  with selected factors to study whether having a mandatory jail sentence is associated with reduced traffic fatalities. 
+
+# Analysis Plan
+## Model selection
+
+In our particular case, we are looking to observe the effects of a series of variables, based on which, we want to make suggestions to policymakers to take certain measures. We sampled all the states across the U.S. We also hope that our model would improve the national highway traffic safety within the U.S. In this case, the target population is the same with sample population. We are interested in making conclusions about whether jail sentences and other factors impact the fatality rate, then the variables would be fitted as fixed effects.  The data set we used in this report is a panel data so we choose the fixed effect regression to build our model.
+
+## Descriptive Analysis
+The original dataset has 336 observations obtained from 48 U.S. states and 7 consecutive years from 1982 to 1988.
+We conduct a both-direction stepwise regression to check which variables are significant enough to be involved in the model. Based on the result, we select variables state, year, jail sentence, unemployment rate, spirits consumptions, income, beer tax, average miles per driver and baptist to build out model.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+library(grid)
+library(car)
+library(MASS)
+library(stats)
+library(ggfortify)
+library(foreign)
+library(plm)
+library(AER)
+library(MASS)
+library(MatchIt)
+data("Fatalities")
+Fatalities$fatal_rate <- Fatalities$fatal / Fatalities$pop * 1000
+
+fit1=lm(fatal_rate~state+year+jail,data=Fatalities)
+model1<-lm(fatal_rate~state+year+spirits+unemp+income+emppop+beertax+baptist+drinkage+youngdrivers+breath+jail+service+pop1820,data=Fatalities)
+forward<-stepAIC(fit1,scope=list(upper=model1, lower=fit1), direction="both", k=2)
+forward$anova
+```
+
+We summarize three informative aspects associated with the traffic fatal rate below:  
+
+*  $\textbf{Alcohol factors:}$ Alcohol drinking is connected with drunk driving and almost half of drivers and more than 40% of passengers killed in vehicle crashes have been drinking `[1]`. Beer tax, spirits consumption and percentage of Baptist are indicators of alcohol consumption within a state. Beer tax and spirits consumption directly influences the beer purchase and Baptist(Southern Baptist holds a general rule of having opposed drinking alcoholic beverages). By exploring the data we find a high positive relations between Beer tax, Baptist percentage and fatal rate as well as a negative relations between spirits consumption and fatal rate `Figure 1`, indicating the necessity of considering these three factors in our model.  
+
+```{r echo=FALSE, fig.height=2, message=FALSE, warning=FALSE}
+
+#code for figure 1
+beertax <- ggplot(data = Fatalities, aes(x = beertax, y = fatal_rate)) +
+  geom_point(color = 'grey') + geom_smooth(method='lm', formula= y ~ x, color = 'black') + 
+  xlab('Beer Tax') +  ylab('Fatal Rate')
+baptist <- ggplot(data = Fatalities, aes(x = baptist, y = fatal_rate)) +
+  geom_point(color = 'grey') + geom_smooth(method='lm', formula= y ~ x, color = 'black')+ 
+  xlab('Baptist') + theme(axis.title.y = element_blank())
+spirits <- ggplot(data = Fatalities, aes(x = spirits, y = fatal_rate)) +
+  geom_point(color = 'grey') + geom_smooth(method='lm', formula= y ~ x, color = 'black')+ 
+  xlab('Spirits') + theme(axis.title.y = element_blank())
+grid.arrange(beertax, baptist, spirits, nrow = 1,top = textGrob("Figure 1"))
+```
+
+*  $\textbf{Economical conditions:}$ Early evidence suggests that the great recession and its high unemployment rates substantially reduced fatalities involving commercial vehicles `[2]`. When the economy was in decline there were fewer other vehicles on the road, and therefore fewer opportunities for crashes. However, an improving economy is associated with more fatal crashes. The high correlation drawn out from the dataset `Figure 2` also tells us to incorporate these two factors in our model.  
+
+```{r echo=FALSE, fig.height=2}
+#Code for Figure 2
+unemp <- ggplot(data = Fatalities, aes(x = unemp, y = fatal_rate)) +
+  geom_point(color = 'grey') + geom_smooth(method='lm', formula= y ~ x, color = 'black') + 
+  xlab('Unemployee') +  ylab('Fatal Rate')
+income <- ggplot(data = Fatalities, aes(x = income, y = fatal_rate)) +
+  geom_point(color = 'grey') + geom_smooth(method='lm', formula= y ~ x, color = 'black')+ 
+  xlab('Income') + theme(axis.title.y = element_blank())
+grid.arrange(unemp, income, nrow = 1,top = textGrob("Figure 2"))
+```
+
+*  $\textbf{Legal terms:}$ Time served in jail is considered as a proper punishment for drunk driving and currently in all states, first-offense driving under the influence(DUI) is classified as a misdemeanor, and punishable by up to six months in jail. Despite the brevity of substituting community service, these laws have been strongly supported as providing the severity necessary for effective deterrence of drunk driving `[3]`. The grouped boxplots show there might exist the treatment effect under different legal penalties towards drunk driving. In addition, the preliminary breath test law affects the procedure of determining drunk driving cases and there might exist treatment effects as well.  
+
+```{r fig.height=2}
+#Code for Figure 3
+jail <- ggplot(data = Fatalities, aes(x = jail, y = fatal_rate)) +
+  geom_boxplot(fill = 'grey') + xlab('Jail') + ylab('Fatal Rate')
+service <- ggplot(data = Fatalities, aes(x = service, y = fatal_rate)) +
+  geom_boxplot(fill = 'grey') + theme(axis.title.y = element_blank()) + xlab('Service')
+breath <- ggplot(data = Fatalities, aes(x = breath, y = fatal_rate)) +
+  geom_boxplot(fill = 'grey') + theme(axis.title.y = element_blank()) + xlab('Breath')
+grid.arrange(jail, service, breath, nrow = 1,top = textGrob("Figure 3"))
+```
+
+The traffic fatalities are associated with other factors including those unobserved in our dataset. As we see from the boxplots `Figure 4`, the median of fatal rate within some states vary to some extent, it might result from the changing policy(Connecticut state revised the law of mandatory jail in 1985) as well as the unobserved variables fluctuate over time. To eliminate the source of omitted variable bias, we need to consider sources vary across states but are constant over time(e.g. In-state public attitude towards drinking) and sources vary over time but are constant across state(e.g. Manufacturing skills in car industry)  
+
+We incorporate these two factors as the fixed effects in our model to control for unobserved variables and estimation bias.  
+
+```{r echo=FALSE, fig.height=4}
+#Code for Figure 4
+state<-ggplot(data = Fatalities, aes(x = year, y = fatal_rate)) +
+  geom_boxplot(fill = 'grey') + stat_summary(fun.y=median, geom="line", aes(group = 1)) +
+  ylab('Fatal Rate') + xlab('Year From 1982 - 1988') + facet_wrap(~ state) + theme(axis.text.y = element_blank(), axis.text.x = element_blank())
+grid.arrange(state, nrow = 1,top = textGrob("Figure 4"))
+```
+
+
+
+## Fixed effect Model
+The `fixed effects regression model`[4] is:
+$$Y_{it} = \gamma X_{it}+\eta Z_{it}+\alpha_i+\beta_{t}+\epsilon_{it}$$
+$\textbf{Explanation of the notation}$
+
+* The index $i$ denotes factor level of state and the index $t$ denotes factor level of year.  
+* $Y_{it}$ denotes the observed outcome of the fatality rate in the $i$th state and $t$th year, $X_{it}$ denotes the jail variable in the $i$th state and $t$th year, $Z_{it}$ vector denotes the other observed variables in the $i$th state and $t$th year.
+* $\gamma$ and $\eta$ vector denotes the coefficient of jail and other interst variables.
+* The $\alpha_i$ and $\beta_t$ are entity-specific intercepts that capture heterogeneities across entities and time.
+* $\epsilon_{it}$ denotes random errors. These are unobserved random variables.   
+
+$\textbf{Assumption}$: The model errors are assumed to be identically and independently distributed from a normal distribution with zero mean and equal variance. 
+
+
+# Results and Discussian
+
+## Fixed Effect Model
+
+To do the hypothesis test, we should specify the test rules of fixed effect model here:
+$$H_{0j}: \beta_j = 0, j = 1,2,…,p \;v.s\;H_{1j}: \beta_j \neq 0, j = 1,2,…,p$$
+
+and use F statistic to do the test.  Table1 shows our model fitting result:
+
+```{r include=FALSE}
+# model
+fatalities_mod1 <- lm(fatal_rate ~ jail, data = Fatalities)
+
+fatalities_mod2 <- plm(fatal_rate ~ jail + state, data = Fatalities)
+
+fatalities_mod3 <- plm(fatal_rate ~ jail + state + year,
+                       index = c("state","year"),
+                       model = "within",
+                       effect = "twoways", 
+                       data = Fatalities)
+
+fatalities_mod4 <- plm(fatal_rate ~ jail+ state + year 
+                       + unemp + log(income)
+                       + beertax ++ baptist+ spirits + service
+                       + miles + breath,
+                       index = c("state", "year"),
+                       model = "within",
+                       effect = "twoways", 
+                       data = Fatalities)
+
+#model 5, no economics
+fatalities_mod5 <- plm(fatal_rate ~ jail+ state + year 
+                       + beertax + baptist + spirits
+                       + miles + breath,
+                       index = c("state", "year"),
+                       model = "within",
+                       effect = "twoways", 
+                       data = Fatalities)
+#model 6, no drinking
+fatalities_mod6 <- plm(fatal_rate ~ jail+ state + year 
+                       + unemp + log(income)
+                       + miles + breath,
+                       index = c("state", "year"),
+                       model = "within",
+                       effect = "twoways", 
+                       data = Fatalities)
+#model 7, no driving
+fatalities_mod7 <- plm(fatal_rate ~ jail+ state + year 
+                       + unemp + log(income)
+                       + beertax + baptist + spirits,
+                       index = c("state", "year"),
+                       model = "within",
+                       effect = "twoways", 
+                       data = Fatalities)
+library(stargazer)
+
+# gather clustered standard errors in a list
+rob_se <- list(sqrt(diag(vcovHC(fatalities_mod1, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod2, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod3, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod4, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod5, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod6, type = "HC1"))),
+               sqrt(diag(vcovHC(fatalities_mod7, type = "HC1"))))
+
+# generate the table
+stargazer(fatalities_mod1, fatalities_mod2, fatalities_mod3, 
+          fatalities_mod4, fatalities_mod5, fatalities_mod6,
+          fatalities_mod7,
+          digits = 3,
+          header = FALSE,
+          type = "text", 
+          se = rob_se,
+          title = "Linear Panel Regression Models of Traffic Fatalities",
+          model.numbers = FALSE,
+          column.labels = c("(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)"))
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+confint(fatalities_mod4)
+```
+|             | Jail(Yes)   | unemp        | log(income) | beertax      | baptist      | spirits     | service(Yes) | miles       | breath(Yes)  |
+|-------------|-------------|--------------|-------------|--------------|--------------|-------------|--------------|-------------|--------------|
+| Coeff | 4.3e-3 | -4.5e-3 | 1.8e-1 | -3.2e-2 | -3.4e-3 | 7.8e-2 | -6.7e-4 | 1.2e-6 | -5.9e-3 |
+| Pr(<F)     | 0.70        | <0.001***    | <0.001***   | 0.06         | 0.48         | <0.001***   | 0.96         | 0.14        | 0.53         |
+
+Table: Model Result 
+
+|       | Jail    | unemp   | log(income) | beertax      | baptist      | spirits     | service      | miles        | breath       |
+|-------|---------|---------|-------------|--------------|--------------|-------------|--------------|--------------|--------------|
+| 2.5%  | -1.7e-2 | -6.7e-2 | 1.1e-1 | -6.5e-2 | -1.3e-2 | 5.7e-2 | -2.6e-2 | -4.0e-7 | -5.9e-3 |
+| 97.5% | 2.6e-2  | -2.4e-3 | 2.5e-1 | 5.8e-4  | 6.1e-3  | 1.0e-1 | 2.4e-2  | 2.8e-6  | 1.1e-2  |
+
+Table: Confidence interval 
+
+Table 2 shows the confidence interval. The estimator of Spirit consumption suggests that there is a positive correlation between traffic fatalities rate and alcohol consumption per capita. The result shows that per liter increase in alcohol consumption, the fatality rate increases 0.08 units, significant (P<0.05). When the consumption of alcohol goes up, we assume that the proportion of drunk drivers will also increase and, accordingly, the fatality will rise.  
+
+The income per capita has a positive correlation with the response variable. The unemployment rate has an inverse correlation with the response variable. Both are significant (P<0.05). The jail is not significant and has a positive correlation with the fatalities rate. The estimator of the beer tax has a negative correlation with the fatalities rate. The sign of beer tax indicates that higher the beer tax is, lower the consumption of alcohol is, and lower the fatalities rate is. However, the beer tax is not significant (P>0.05). The estimator of baptist and service are not significant at the 0.05 level.    
+
+## Model Diagnostics
+
+*  $\textbf{Independence:}$ From the background of the dataset, we believe that the outcomes are not independent.  
+
+*  $\textbf{Normality:}$ The right histogram in `Figure 5` depicts that the distribution is not normal and the Q-Q plot gives the same conclusion. The normality assumption is not satisfied.  
+ 
+* $\textbf{Constant variance:}$ As shown in the left scatter plot in `Figure 5`, the residuals spread around the 0, but the extent of the points scattered are not equal. The assumption of constant variance is not satisfied.  
+
+Based on those results, we can conclude that the robustness and reliability of this model need to improvement, and the reliability of conclusion above is not strong. We need to improve our model. In this case, even though jail is not significant (P>0.05), we still want to do causal inference to make sure whether it is the causal effect of the fatality rate.
+
+```{R echo=FALSE, fig.height=2.5, fig.width=4, message=FALSE, warning=FALSE}
+
+anova.fit1 <- aov(fatal_rate ~ jail+ state + year 
+                       + unemp + log(income)
+                       +  spirits
+                       , data = Fatalities)
+mse<-mean(anova.fit1$residuals^2)
+res<-anova.fit1$residuals
+res_semistd=res/mse
+res_semistd_frame <- data.frame(x = res_semistd)
+
+a1 <- ggplot() + geom_point(aes(x = anova.fit1$fitted.values, y = res), show.legend = FALSE) +
+  geom_smooth(aes(x = anova.fit1$fitted.values, y = res), method='lm', show.legend = FALSE) + 
+  xlab('Fitted Values') + ylab('Residuals')
+
+a2 <- ggplot(res_semistd_frame, aes(x = x)) + 
+  geom_histogram(alpha=0.9, bins = 30)
+
+grid.arrange(a1, a2, nrow = 1,top = textGrob("Figure 5"))
+```
+```{r fig.height=3, fig.width=2.5}
+qqnorm(fatalities_mod4$residuals, ylab = 'Residuals')
+abline(0,0.01333)
+```
+
+## Causal Inference
+This experiment is designed as an observational study. The experiment units were not randomly generated nor independent with each other. Propensity score matching is a powerful technology that allows for causal inference in this type of case. In the empirical example, we adjusted for confounding using nearest neighbor matching.  
+
+Figure 6
+```{R echo=FALSE, fig.height=2.5, fig.width=5, message=FALSE, warning=FALSE}
+jail<-as.numeric(Fatalities$jail=='yes')
+spirits<-Fatalities$spirits
+unemp<-Fatalities$unemp
+income<-Fatalities$income
+baptist<-Fatalities$baptist
+fatal_rate<-Fatalities$fatal_rate
+mydata<-na.omit(data.frame(cbind(fatal_rate, jail,spirits,unemp,income,baptist)))
+psmodel<-glm(jail ~ spirits + unemp + 
+               income +  baptist,
+             family=binomial(),data=mydata)
+pscore<-psmodel$fitted.values
+m.out<-matchit(jail~spirits + unemp + 
+                 income +  baptist,data=mydata,
+               method='nearest',ratio=1)
+```
+```{R fig.height=3.8}
+plot(m.out,type='hist')
+```
+
+*   Estimate Propensity Scores and  Adjust for Confounding  
+First, we create an artificial data set that contains the following set of covariates (states which change their jail sentence policy halfway, spirits, unemployment, income, and percent of baptist) along with a treatment indicator, indicating whether or not a jail sentence was executed.   
+Overlapping distributions means that there are individuals in the treatment group that are similar to those in the control group on the potential confounders. When distributions do not overlap, causal inferences are not warranted because the necessary extrapolation results in unstable estimates of effects. We examined overlap of the propensity score distributions for jail sentence to determine if an attempt at causal inference could be justified in this study. The histogram `figure 6` shows that for nearly all individuals in the control group, an individual in the jail group has a similar propensity score, and vice versa.   
+Then, we select the ratio, which we set to one indicating that each person in the jail-yes group will be matched with one person in the control group (jail-no). Sample sizes `Table 3` shows the result of the procedure.
+
+
+*   Assess Balance   
+From the percent balance improvement, which provides percentage improvement by using the matched data relative to all the data, we can see that a match is needed. The plots show the effectiveness of the matching procedure. The histogram `Figure 6` evaluates how much better the matching procedures matched the data. 
+
+| Sample Sizes | Control | Treated      |
+|--------------|---------|--------------|
+| All          | 241     | 94           |
+| Matched      | 94      | 94           |
+| Unmatched    | 147     | 0            |
+| Discarded    | 0       | 0            |
+
+Table: Sample sizes 
+
+*   Estimate the Propensity Score-Adjusted Treatment Effects  
+Finally, we use the Zelig function to create the model to evaluate the impact of being sentenced in a jail with the matched data. We can see that the jail variable is significant under 5% significance level. Hence, a causal statement can be made that the estimates of the causal effect suggest that jail sentence is expected to produce a higher fatality rate.
+
+# Conclusion and Suggestion  
+Using a large panel data of traffic fatalities with 48 states in the U.S. in 7 consecutive years, from 1982 to 1988, we investigate whether the drinking factor, the economic factor and the legal factor influence the fatality rate with fixed effect model and whether the mandatory jail law is the cause of fatality rate. Based on the result, we find that economic factors (income and unemployment) and Spirit consumption are associated with the fatality rate. We also do the causal inference and find that mandatory jail law is the causal effect of the fatality rate. The coefficient of mandatory jail law is positive, Therefore, we can make suggestions to policymakers that cancel the mandatory jail law and pay more attention to other factors like road infrastructure and economic development.
+
+
+
+
+# Reference
+[1]. Ruhm, Christopher J. "Alcohol policies and highway vehicle fatalities." Journal of health economics 15.4 (1996): 435-454.  
+[2]. https://www.sciencedaily.com/releases/2016/01/160121132534.htm  
+[3]. https://scholarlycommons.law.northwestern.edu/cgi/viewcontent.cgi?article=6657&context=jclc  
+[4]. https://www.econometrics-with-r.org/rwpd.html#drunk-driving-laws-and-traffic-deaths    
+[5]. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4098642/  
+
+# Appendix
+```{R echo=FALSE, fig.height=2.5, fig.width=5, message=FALSE, warning=FALSE}
+summary(m.out)
+```
+
+```{R echo=FALSE, fig.height=2.5, fig.width=5, message=FALSE, warning=FALSE}
+m.outCSV = match.data(m.out)
+library(Zelig)
+z.out = zelig(fatal_rate ~ jail+spirits + unemp + income +  baptist, model = "ls",data = m.outCSV)
+summary(z.out)
+```
+```{r}
+summary(fatalities_mod4)
+```
