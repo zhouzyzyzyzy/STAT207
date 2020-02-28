@@ -1,0 +1,373 @@
+---
+title: "Detecting potential customers of term deposit subscription"
+output:
+  pdf_document: 
+    number_sections: yes
+  html_document:
+    df_print: paged
+    fig_caption: yes
+    number_sections: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 17px;
+  }
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,message=FALSE,warning=FALSE)
+```
+
+
+
+Team Id:11  
+
+Xi Yang     (outline introduction,analysis plan)  
+
+Shan Gao    (logistic regression model)  
+
+Yuxiang Lin (Descriptive Analysis,Conclusion)  
+
+Ziyi Zhou   (random forest model,comparison)  
+
+Github Repo: https://github.com/zhouzyzyzyzy/STAT207.git
+
+
+
+# Introduction
+
+Telemarketing is a very important strategy in business. Over the phone, salespeople can sell goods and services to potential customers directly. But telemarketing is not a random number of calls and to promote a few products by chance, such calls tend to antagonize customers and backfires. Through the analysis of customers, enterprises can find out target groups and improve transaction volume and customer satisfaction.
+
+In this report, we are going to help a Portuguese retail bank to subscribe new users to a long-term deposit. Our goal is to build a model that can predict the result of telesales to sell a long-term deposit based on the information of customers. The data set 'Bank Marketing' contains 45211 observations and 20 features related to bank client data, the last contact of the current campaign, social and economic context and so on. According to the literature review and the information, we will use logistic regression and random forest to build our model.
+
+#  Analysis Plan
+## Data Resource
+
+We decide to use the full dataset because it contains more observations that lead to a more accurate model. Otherwise, it contains more variables and gives us more information about the customers. We will select features based on those variables.
+
+## Descriptive Analysis
+The original dataset contains 41188 observations with a term deposit ratio(numbers of clients subscribe to a term deposit divided by total clients) of 0.013. In this session, we aim to roughly explore the sources that would influence a client's decision on subscribing to a term deposit.
+
+###  Influential Resources From Qualitative Variables
+We draw grouped percentage bar plots for the qualitative variables(Figure 1). Considering a specific categorical variable 'job', if the student group in this variable has no influence on the term-deposit, then the percentage of clients that subscribe to a term deposit in this group will be equivalent to term-deposit ratio 0.013. Correspondingly, if clients in the student group are more likely to subscribe to the term deposit, then the percentage will be higher than the ratio, leading to the blue bar in the plot exceeding the ratio line.
+We highlight the key information from the bar plot above.  
+*  Clients with jobs as 'student' and 'retired' tend to have term deposits, clients with jobs as 'blue-collar' tend to reject term deposits.  
+*  Clients with illiteracy education are likely to subscribe to term deposits.  
+*  If a client has experience with subscribing to a term deposit or is contacted with cellular, he tends to have term deposit. If a client has credit, it's of little chance for him to subscribe to a term deposit.  
+
+
+```{r echo=FALSE, fig.height=7, fig.width=8, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(tidyverse)
+library(broom)
+library(grid)
+data <- read.csv('bank-additional-full.csv', header = TRUE, sep = ';')
+intercept <- as.numeric(table(data$y)[2]/(table(data$y)[1] + table(data$y)[2]))
+job <- ggplot(data, aes(fill = y, x = job, y = 1)) + 
+  geom_bar(position = "fill", stat = "identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  geom_hline(yintercept = intercept, color = 'black') + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(a). Job')
+marital <- ggplot(data, aes(fill = y, x = marital, y = 1)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(b). Marital')
+education <- ggplot(data, aes(fill = y, x = education, y = 1)) +
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(c). Education')
+housing <- ggplot(data, aes(fill = y, x = housing, y = 1)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(d). Housing')
+contact <- ggplot(data, aes(fill = y, x = contact, y = 1)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(e). Contact')
+poutcome <- ggplot(data, aes(fill = y, x = poutcome, y = 1)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(f). Poutcome')
+default <- ggplot(data, aes(fill = y, x = default, y = 1)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(g). Defaultl')
+loan <- ggplot(data, aes(fill = y, x = loan, y = 1)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + 
+  geom_hline(yintercept = intercept) + guides(fill=guide_legend(title="Term Deposit")) +
+  coord_flip() + ggtitle('(h). Loan')
+
+grid.arrange(job, marital, education, housing, contact, poutcome, default, loan, nrow = 4, ncol = 2, top = textGrob("Figure 1"))
+
+# seperate dataset
+data_yes <- as.data.frame(filter(data, y == 'yes'))
+data_no <- as.data.frame(filter(data, y == 'no'))
+set.seed(123)
+data_yes <- data_yes[sample(nrow(data_yes), 25000, replace = TRUE), ]
+data_no <- data_no[sample(nrow(data_no), 25000, replace = TRUE), ]
+train <- as.data.frame(rbind(data_yes[1:20000, ], data_no[1:20000, ]))
+test <- as.data.frame(rbind(data_yes[20001:25000, ], data_no[20001:25000, ]))
+```
+
+### Influential Resources From Social and Economic Context
+Economic factors affect the behavior of subscribing to a term deposit. Higher consumption confidence and higher substitution deposit rate drive people to abandon term deposit. Figure 2 shows an increase in employee rate, consumption confidence, three month rate lead to an decreasing in subscribing to term deposits.  
+
+```{r echo=FALSE, fig.height=2, message=FALSE, warning=FALSE}
+#four histogram
+g1 <- ggplot(data = train, aes(x = y, y = emp.var.rate)) + geom_boxplot() + theme(axis.title.x = element_blank())
+g2 <- ggplot(data = train, aes(x = y, y = cons.price.idx)) + geom_boxplot() + theme(axis.title.x = element_blank())
+g3 <- ggplot(data = train, aes(x = y, y = euribor3m)) + geom_boxplot() + theme(axis.title.x = element_blank())
+g4 <- ggplot(data = train, aes(x = y, y = nr.employed)) + geom_boxplot() + theme(axis.title.x = element_blank())
+grid.arrange(g1, g2, g3, g4, nrow = 1, top = textGrob("Figure 2"))
+```
+
+## Model
+In this report, we are going to construct a logistic regression model and random forest model.  
+
+
+### Logistic Regression Model
+The logistic regression model is set as follows:  
+$$\pi(X)=\frac{1}{1+e^{-(\beta_0+{\beta}X)}}$$  
+
+*  $\pi(X)$ is the probability that a client subscribe to term deposit.   
+*  $\beta_0$ is the regression coefficient, $\beta$ is the regression coefficient vector.   
+*  $X$ is the predictor variables vector including age, job, marital, education, default, housing, loan, contact, month, day of week, duration, campaign, pdays, previous, poutcome, emp.var.rate, cons.price.index, cons.conf.index, euribor3m, nr.employed, we choose these variables based on literature review[1].  
+
+Hypothesis testing:  
+For presence of ${\beta_i}$ in the model:  
+$$H_0:\beta_0 = 0\quad v.s.\quad H_a:{\beta_i} \neq 0$$  
+Using the z-statistic $z = \frac{\hat{\beta_1}}{s(\hat{\beta_1})}$  
+For investigating if fitting a logistic linear model is appropriate, we define $\pi'_i=\log\frac{\pi_i}{1-\pi_i}$, then:  
+$$H_0:\pi'_j = \beta_0 +\beta_1X_j \quad v.s.\quad H_a:\pi'_j\; do\; not\; line\; on\; straight\; line.$$
+
+## Model Evaluation
+Logistics Model assumption:  
+
+* Linearity assumption: linear relationship between continuous predictor variables and the logit of the outcome. This can be done by visually inspecting the scatter plot between each predictor and the logit values.   
+* Bernoulli distribution: Response variable follows the Bernoulli distribution.  
+
+
+#  Result
+## Model Fitting  
+
+The result of model fitting is shown in the appendix.  According to the hypothesis test we introduced before, we may notice that some variables are significant, such as duration, emp.var.rate, cons.price.index. Although some of them are not significant, we do not drop them. Because an automated selection approach is adopted, based on an adapted forward selection method[3], all these variables are necessary to get the best performance.  
+
+Compared with the association with the response variable, we think the performance is much more important to a classifier. We prefer a better ROC curve rather than the significance level.  
+
+The result of model fitting is shown in the appendix.  
+
+## Model Diagnostic 
+The scatter plot shows that variable is quite linearly associated with the term deposit outcome in logit scale.
+```{r fig.height=4, fig.width=4}
+model <- glm(y~., data = train, family = binomial)
+probabilities <- predict(model, type = "response")
+predictors <- colnames(train)[1:20]
+train$logit <- log(probabilities/(1-probabilities))
+ggplot(train, aes(duration, logit))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = 'lm')
+```
+
+The response variable is whether the product (bank term deposit) would be or not subscribed. There are only two values: 'no' and 'yes' and we can rewrite it as 0 and 1. A client subscribed to the product with a certain probability. Hence, the response variable follows a Bernoulli distribution obviously.
+
+
+##  Model Performance
+###  Unbalanced Dataset
+
+|         |     | Observed | Observed |
+|---------|:---:|:--------:|----------|
+|         |     | no       | yes      |
+| Predict | no  | 7168     | 489      |
+| Predict | yes | 195      | 386      |
+
+Table: Table 1: Result on test of original dataset
+
+
+For the logistic regression, when we fit the model with the original data, the accuracy of the model is 91% on the test set. It seems to be an ideal result that we only make less than 10% mistakes. However, notice that there are 905 positive samples in total while we only recognize 368 of them. Considering the aim of our model, It is not well-performed.  If we predict all the samples are negative, the accuracy is nearly 90%. This model is meaningless because it doesn't give any information.  
+
+After exploring the data, we found that the number of people who subscribe to the long-term deposit is far lower than the number of people who don't subscribe to the long-term deposit. So this is an unbalanced data. When we care about the minority classes, the class balancing techniques are really necessary.  
+
+### Balanced Dataset
+
+Because of the unbalanced dataset, it is not reasonable to measure the performance of the model with accuracy. In this case, the more positive targets are found out, the better the model is. We choose true positive rate (TPR) as the parameter to measure the performance. The TPR is 40.7%, which is really poor.
+
+|         |     | Observed | Observed |
+|---------|:---:|:--------:|----------|
+|         |     | no       | yes      |
+| Predict | no  | 775      | 115      |
+| Predict | yes | 153      | 813      |
+
+Table: Table 2: Result on test of balanced dataset
+
+Hence, we use the undersampling method to reconstruct the dataset since we are more interested in the positive samples. We sample randomly from the negative samples to make the amount of positive samples and negative samples are equal.  By this method, we wouldn't lose any information on positive samples and at the meantime, balance the dataset.  
+
+With the new dataset, the accuracy of the logistic model decreases a little, about 86.5%. But surprisingly, the true positive rate increases extremely, about 89%. It means we can predict most of the positive samples correctly. It is much more meaningful.  Actually, we don't care much about the false positive rate because the cost of making a call is much less than the benefit.  
+
+
+##  Comparison between Logistic Regression and Random Forest
+
+Random forest is a learning method for classification. It based on generating a large number of decision trees, each decision trees are used to identify a classification consensus by selecting the most common output.
+
+```{r include=FALSE}
+library(randomForest)
+bank_additional_full = read.csv('bank-additional-full.csv',header = TRUE,sep = ";")
+smp_size <- floor(0.8 * nrow(bank_additional_full))
+set.seed(123)
+train_ind <- sample(seq_len(nrow(bank_additional_full)), size = smp_size)
+train <- bank_additional_full[train_ind, ]
+test <- bank_additional_full[-train_ind, ]
+
+data.rf <- randomForest(y ~ ., data = train)
+prediction_for_table <- predict(data.rf,test[,-21])
+table(observed=test[,21],predicted=prediction_for_table)
+```
+```{r include=FALSE}
+library(pROC)
+library(dplyr)
+
+data_yes <- as.data.frame(filter(bank_additional_full, y == 'yes'))
+data_no <- as.data.frame(filter(bank_additional_full, y == 'no'))
+set.seed(123)
+data_no <- data_no[sample(nrow(data_no), nrow(data_yes), replace = FALSE), ]
+
+smp_size <- floor(0.8 * nrow(data_yes))
+train_ind <- sample(seq_len(nrow(data_yes)), size = smp_size)
+train <- as.data.frame(rbind(data_yes[train_ind, ], data_no[train_ind, ]))
+test <- as.data.frame(rbind(data_yes[-train_ind, ], data_no[-train_ind, ]))
+
+data.rf1 <- randomForest(factor(y)~ ., data = train)
+pred.rf1 <- predict(data.rf1,test[,-21],type="prob")
+
+data.lr1 = glm(factor(y )~ ., data = train, family = "binomial")
+pred.lr1 <- predict(data.lr1,test[,-21],type="response")
+
+ROC_rf1 <- roc(test$y, pred.rf1[,2],levels=c("yes", "no"))
+ROC_rf_auc1 <- auc(ROC_rf1)
+ROC_lr1 <- roc(test$y, pred.lr1)
+ROC_lr_auc1 <- auc(ROC_lr1)
+```
+```{R include=FALSE}
+prediction_for_table <- predict(data.rf1,test[,-21])
+table(observed=test[,21],predicted=prediction_for_table)
+```
+
+```{r include=FALSE}
+ROC_lr1$auc
+ROC_rf1$auc
+```
+|         |     | Observed | Observed |
+|---------|:---:|:--------:|----------|
+|         |     | no       | yes      |
+| Predict | no  | 7128     | 235      |
+| Predict | yes | 396      | 479      |
+
+Table: Table 3: Result on test of original dataset
+
+|         |     | Observed | Observed |
+|---------|:---:|:--------:|----------|
+|         |     | no       | yes      |
+| Predict | no  | 767      | 161      |
+| Predict | yes | 64       | 864      |
+
+Table: Table 4: Result on test of original dataset
+
+
+For the random forest model, when we fit the model with the original data, the accuracy of the model is 92% on the test set while the true positive rate is 54.6%. When we consider the balanced data, the accuracy of the model turns to be 88% while the true positive rate is up to 93.1%. It is slightly better than the logistic regression.    
+
+|          |  Logistic  | Logistic | Random Forest | Random Forest |
+|----------|:----------:|:--------:|---------------|---------------|
+|          | unbalanced | balanced | unbalanced    | balanced      |
+| Accuracy | 91%        | 86.5%    | 92%           | 88%           |
+| TPR      | 40.7%      | 89%      | 54.6%         | 93.1%         |
+
+Table: Table 5: Comparison between Logistic Regression and Random Forest
+
+
+We may get the same conclusion if we consider the ROC curve and the AUC. The AUC of logistic regression is 0.92 and the AUC of random forest is 0.94. As shown in the figure 4.  
+
+Figure 4  
+
+```{r fig.height=3, fig.width=3}
+plot(ROC_rf1, col = "green", main = NULL)
+lines(ROC_lr1, col = "red")
+```
+
+|                      | Logistic Regression | Random Forest |
+|----------------------|:-------------------:|:-------------:|
+| Area under the curve | 0.92                | 0.94          |
+
+
+For the cases of more complex datasets, linear-based algorithms may not be sufficient in segmenting the class labels, leading to poor accuracies. More sophisticated algorithms may then be required like random forest, which can learn a non-linear decision boundary and thus can achieve higher accuracy scores.  
+
+Random forests can have a decision boundary with high variability in predictions but low bias. According to the decision boundary, logistic regression poorly segments the two classes while the more flexible decision boundary learned from the random forest model produces a higher classification accuracy.  
+
+# Further Research
+In this project, we did not adjust the parameters of the model, especially for the random forest. Moreover, we may use those more advanced sampling methods, such as SMOTE, to balance the dataset. Finally, to get a better performance, some other models worth trying, such as SVM, Adaboost.
+
+# Reference
+[1]. Moro, Sérgio, Paulo Cortez, and Paulo Rita. "A data-driven approach to predict the success of bank telemarketing." Decision Support Systems 62 (2014): 22-31.  
+
+[2]. Kirasich, Kaitlin, Trace Smith, and Bivin Sadler. "Random Forest vs Logistic Regression: Binary Classification for Heterogeneous Datasets." SMU Data Science Review 1.3 (2018): 9.  
+
+[3].] Isabelle Guyon, André Elisseeff, An introduction to variable and feature selection, Journal of Machine Learning Research 3 (2003) 1157–1182.
+
+# Appendix
+```{r echo=FALSE}
+###unbalanced
+
+smp_size <- floor(0.8 * nrow(data))
+set.seed(123)
+train_ind <- sample(seq_len(nrow(data)), size = smp_size)
+train <- data[train_ind, ]
+test <- data[-train_ind, ]
+
+
+logreg2<-glm(factor(y )~ ., data = train, family = binomial)
+summary(logreg2)
+```
+```{r echo=FALSE}
+prob<-predict(logreg2, newdata=test,type='response')
+predicted<-ifelse(predict(logreg2, newdata=test,type='response')<.5,"no","yes")
+
+confusion_matrix<-table(predicted=predicted,observed=test$y)
+sensitivity1<-confusion_matrix[2,2]/sum(confusion_matrix[,2])
+specificity1<-confusion_matrix[1,1]/sum(confusion_matrix[,1])
+confusion_matrix
+```
+
+```{r echo=FALSE}
+###balanced
+library(dplyr)
+data_yes <- as.data.frame(filter(data, y == 'yes'))
+data_no <- as.data.frame(filter(data, y == 'no'))
+set.seed(123)
+data_no <- data_no[sample(nrow(data_no), nrow(data_yes), replace = FALSE), ]
+
+smp_size <- floor(0.8 * nrow(data_yes))
+train_ind <- sample(seq_len(nrow(data_yes)), size = smp_size)
+train <- as.data.frame(rbind(data_yes[train_ind, ], data_no[train_ind, ]))
+test <- as.data.frame(rbind(data_yes[-train_ind, ], data_no[-train_ind, ]))
+
+logreg<-glm(factor(y )~ ., data = train, family = binomial)
+summary(logreg)
+```
+```{r echo=FALSE}
+prob<-predict(logreg, newdata=test,type='response')
+predicted<-ifelse(predict(logreg, newdata=test,type='response')<.5,"no","yes")
+confusion_matrix<-table(predicted=predicted,observed=test$y)
+sensitivity1<-confusion_matrix[2,2]/sum(confusion_matrix[,2])
+specificity1<-confusion_matrix[1,1]/sum(confusion_matrix[,1])
+confusion_matrix
+```
